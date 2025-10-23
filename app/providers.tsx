@@ -14,14 +14,13 @@ const queryClient = new QueryClient();
 
 // Configure Sui networks (devnet and mainnet)
 const networks = {
-  devnet: { url: getFullnodeUrl('devnet') },
-  mainnet: { url: getFullnodeUrl('mainnet') },
+  testnet: { url: getFullnodeUrl('testnet') },
 };
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <SuiClientProvider networks={networks} defaultNetwork="devnet">
+      <SuiClientProvider networks={networks} defaultNetwork="testnet">
         <WalletProvider>
           {children}
         </WalletProvider>
