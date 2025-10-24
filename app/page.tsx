@@ -13,13 +13,22 @@ export default function Home() {
         {/* Wallet connection component */}
         <WalletConnect />
         
-        {/* Link to test page */}
-        <Link 
-          href="/test"
-          className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
-        >
-          Test Greeting Contract →
-        </Link>
+        {/* Navigation Links */}
+        <div className="flex flex-col gap-4 mt-8">
+          <Link 
+            href="/test"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 text-center"
+          >
+            Test Greeting Contract →
+          </Link>
+          
+          <Link 
+            href="/nft"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 text-center"
+          >
+            🎨 NFT Minting Platform →
+          </Link>
+        </div>
       </main>
     </div>
   );
