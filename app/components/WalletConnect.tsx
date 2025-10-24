@@ -63,7 +63,7 @@ function OwnedObjects({ address }: { address: string }) {
           >
             {/* Link to view object on Sui explorer */}
             <a 
-              href={`https://suiscan.xyz/devnet/object/${object.data?.objectId}`}
+              href={`https://suiscan.xyz/testnet/object/${object.data?.objectId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:underline break-all"
