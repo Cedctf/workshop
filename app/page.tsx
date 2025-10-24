@@ -1,4 +1,5 @@
 import { WalletConnect } from './components/WalletConnect';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -11,6 +12,14 @@ export default function Home() {
         
         {/* Wallet connection component */}
         <WalletConnect />
+        
+        {/* Link to test page */}
+        <Link 
+          href="/test"
+          className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
+        >
+          Test Greeting Contract →
+        </Link>
       </main>
     </div>
   );
