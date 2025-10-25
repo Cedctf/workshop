@@ -11,7 +11,7 @@ import { ConnectButton } from '@mysten/dapp-kit';
 import Link from 'next/link';
 
 // Your deployed NFT contract details
-const PACKAGE_ID = '0x430f25df7e6d52c4f68798248ede62adfd16b73bea4496224a666c4be1ee4aa1';
+const PACKAGE_ID: string = '0x430f25df7e6d52c4f68798248ede62adfd16b73bea4496224a666c4be1ee4aa1';
 
 export default function NFTPage() {
   const currentAccount = useCurrentAccount();
