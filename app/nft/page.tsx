@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   useCurrentAccount, 
   useSignAndExecuteTransaction,
@@ -24,6 +24,7 @@ export default function NFTPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [txDigest, setTxDigest] = useState<string>('');
   const [mintedNFTs, setMintedNFTs] = useState<any[]>([]);
+  const [mintedEvents, setMintedEvents] = useState<any[]>([]);
 
   // Helper function to manually encode string to BCS format (bypass SDK bug)
   const encodeToBCS = (text: string): Uint8Array => {
@@ -47,6 +48,111 @@ export default function NFTPage() {
     
     return new Uint8Array([...lengthBytes, ...stringBytes]);
   };
+
+  // Function to parse NFTMinted events from transaction
+  const parseNFTMintedEvents = async (txDigest: string) => {
+    try {
+      const txDetails = await suiClient.getTransactionBlock({
+        digest: txDigest,
+        options: {
+          showEvents: true,
+          showEffects: true,
+        },
+      });
+
+      console.log('Transaction Details:', txDetails);
+
+      // Filter for NFTMinted events
+      const events = txDetails.events || [];
+      const nftMintedEvents = events.filter((event: any) => 
+        event.type.includes('::nft::NFTMinted')
+      );
+
+      console.log('NFTMinted Events:', nftMintedEvents);
+
+      // Parse and store the events
+      const parsedEvents = nftMintedEvents.map((event: any) => ({
+        objectId: event.parsedJson?.object_id,
+        creator: event.parsedJson?.creator,
+        name: event.parsedJson?.name,
+        timestamp: new Date(event.timestampMs || Date.now()).toISOString(),
+        txDigest: txDigest,
+      }));
+
+      return parsedEvents;
+    } catch (error) {
+      console.error('Error parsing NFT minted events:', error);
+      return [];
+    }
+  };
+
+  // Function to query all historical NFTMinted events from the contract
+  const queryAllNFTMintedEvents = async () => {
+    try {
+      setLoading(true);
+      console.log('=== Querying All NFT Minted Events ===');
+      
+      const eventType = `${PACKAGE_ID}::nft::NFTMinted`;
+      console.log('Event Type:', eventType);
+
+      let allEvents: any[] = [];
+      let cursor = null;
+      let hasNextPage = true;
+
+      // Paginate through all events
+      while (hasNextPage) {
+        const response = await suiClient.queryEvents({
+          query: { MoveEventType: eventType },
+          cursor: cursor,
+          limit: 50, // Max limit per page
+          order: 'descending', // Newest first
+        });
+
+        console.log('Query Response:', response);
+
+        if (response.data && response.data.length > 0) {
+          allEvents = [...allEvents, ...response.data];
+        }
+
+        hasNextPage = response.hasNextPage;
+        cursor = response.nextCursor;
+
+        // Safety break to avoid infinite loops
+        if (allEvents.length > 1000) {
+          console.warn('Reached 1000 events limit');
+          break;
+        }
+      }
+
+      console.log(`Found ${allEvents.length} total NFT minted events`);
+
+      // Parse and format the events
+      const parsedEvents = allEvents.map((event: any) => ({
+        objectId: event.parsedJson?.object_id,
+        creator: event.parsedJson?.creator,
+        name: event.parsedJson?.name,
+        timestamp: new Date(Number(event.timestampMs)).toISOString(),
+        txDigest: event.id.txDigest,
+        eventSeq: event.id.eventSeq,
+      }));
+
+      setMintedEvents(parsedEvents);
+      console.log('Parsed Events:', parsedEvents);
+      
+      return parsedEvents;
+    } catch (error) {
+      console.error('Error querying all NFT minted events:', error);
+      alert('Failed to query events: ' + (error as Error).message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load all historical events on component mount
+  useEffect(() => {
+    queryAllNFTMintedEvents();
+  }, []); // Run once on mount
 
   // Function to mint NFT
   const mintNFT = async () => {
@@ -97,7 +203,17 @@ export default function NFTPage() {
           onSuccess: async (result) => {
             console.log('Transaction successful:', result);
             setTxDigest(result.digest);
-            alert(`NFT Minted! Tx Digest: ${result.digest}`);
+            
+            // Parse and index the NFTMinted events from this transaction
+            const events = await parseNFTMintedEvents(result.digest);
+            
+            if (events.length > 0) {
+              // Add the new events to the beginning of the list (newest first)
+              setMintedEvents(prev => [...events, ...prev]);
+              alert(`NFT Minted! Object ID: ${events[0].objectId}`);
+            } else {
+              alert(`NFT Minted! Tx Digest: ${result.digest}`);
+            }
             
             // Clear form
             setName('');
@@ -359,6 +475,77 @@ export default function NFTPage() {
             </div>
           </div>
         )}
+
+        {/* Indexed NFT Minted Events */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              📋 All NFT Minted Events ({mintedEvents.length})
+            </h2>
+            <button
+              onClick={queryAllNFTMintedEvents}
+              disabled={loading}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+              {loading ? 'Loading...' : '🔄 Refresh Events'}
+            </button>
+          </div>
+
+          {mintedEvents.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+              No NFT minted events found. Mint an NFT to see events here!
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {mintedEvents.map((event, index) => (
+                <div key={index} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        NFT Name:
+                      </span>
+                      <p className="text-sm font-medium text-gray-800 dark:text-white">
+                        {event.name}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Object ID:
+                      </span>
+                      <p className="text-xs font-mono break-all text-gray-700 dark:text-gray-300">
+                        {event.objectId}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Creator:
+                      </span>
+                      <p className="text-xs font-mono break-all text-gray-700 dark:text-gray-300">
+                        {event.creator}
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pt-2 border-t border-purple-200 dark:border-purple-700">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(event.timestamp).toLocaleString()}
+                      </span>
+                      <a
+                        href={`https://testnet.suivision.xyz/txblock/${event.txDigest}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold"
+                      >
+                        View Tx →
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
